@@ -103,6 +103,10 @@
             animation: spin 1s linear infinite;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* Add mirroring to the result canvas so selfies don't look weird if they were mirrored initially */
+        #final-result-canvas {
+            transition: opacity 0.5s ease;
+        }
     </style>
 </head>
 <body class="flex flex-col items-center justify-center p-4 relative">
@@ -209,26 +213,27 @@
         </div>
 
         <!-- Step 4: Result -->
-        <div id="step-result" class="hidden flex-col items-center w-full space-y-6">
+        <div id="step-result" class="hidden flex-col items-center w-full space-y-6 pb-8">
             <h2 class="text-3xl font-display text-center text-white mb-2">Takdirmu Adalah:</h2>
             <h3 id="result-profession" class="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-600 text-center mb-4">...</h3>
             
-            <div class="relative w-full max-w-md aspect-[3/4] rounded-xl overflow-hidden shadow-2xl border-4 border-mystic-700 mx-auto">
+            <div class="relative w-full max-w-md aspect-[3/4] rounded-xl overflow-hidden shadow-2xl border-4 border-mystic-700 mx-auto bg-mystic-900">
                 <!-- Fallback loading state for image -->
-                <div id="result-loading" class="absolute inset-0 bg-mystic-900 flex items-center justify-center z-0">
-                    <div class="spinner"></div>
+                <div id="result-loading" class="absolute inset-0 bg-mystic-900 flex flex-col items-center justify-center z-0">
+                    <div class="spinner mb-4"></div>
+                    <p class="text-mystic-400 text-sm animate-pulse">Melukis masa depanmu...</p>
                 </div>
                 <!-- Final Canvas where compositing happens -->
-                <canvas id="final-result-canvas" class="w-full h-full object-cover z-10 relative hidden"></canvas>
+                <canvas id="final-result-canvas" class="w-full h-full object-cover z-10 relative opacity-0"></canvas>
             </div>
 
-            <p id="result-description" class="text-center text-gray-300 italic mt-4 px-4">...</p>
+            <p id="result-description" class="text-center text-gray-300 italic mt-4 px-4 text-lg">...</p>
 
-            <div class="flex gap-4 mt-8">
-                <button id="btn-download" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-full transition-colors">
-                    <i class="fas fa-download mr-2"></i> Simpan
+            <div class="flex gap-4 mt-8 flex-wrap justify-center">
+                <button id="btn-download" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-full transition-colors flex items-center">
+                    <i class="fas fa-download mr-2"></i> Simpan Ramalan
                 </button>
-                <button id="btn-restart" class="btn-mystic text-white font-bold py-2 px-6 rounded-full">
+                <button id="btn-restart" class="btn-mystic text-white font-bold py-3 px-6 rounded-full flex items-center">
                     <i class="fas fa-redo mr-2"></i> Ramal Ulang
                 </button>
             </div>
@@ -244,23 +249,23 @@
     <script>
         // --- DATA & CONFIGURATION ---
         
-        // 15 Unique Profession Themes - Dioptimalkan untuk model Flux (Portrait Realism)
+        // 15 Unique Profession Themes - Dioptimalkan untuk model Gemini 3.1 Flash Image (Illustration/Stylization)
         const professions = [
-            { id: "cyber_hacker", name: "Cyberpunk Hacker", desc: "Penguasa kode di kota neon masa depan.", prompt: "award winning photography, front portrait of a cyberpunk hacker in a neon lit futuristic city, intricate circuitry clothes, looking straight at camera, neutral expression, centered face, symmetrical, neon blue and magenta lighting, 8k resolution, photorealistic" },
-            { id: "royal_alchemist", name: "Royal Alchemist", desc: "Meracik ramuan emas di laboratorium istana kuno.", prompt: "award winning photography, front portrait of a medieval royal alchemist in a grand castle laboratory, glowing potions, wearing ornate robes, looking straight at camera, neutral expression, centered face, warm candlelight, photorealistic, 8k" },
-            { id: "space_commander", name: "Komandan Galaksi", desc: "Memimpin armada bintang melintasi rasi nebula.", prompt: "award winning photography, front portrait of a futuristic space fleet commander, bridge of a spaceship, glowing nebula background, sleek sci-fi military uniform, looking straight at camera, neutral expression, centered face, cinematic sci-fi lighting" },
-            { id: "nature_druid", name: "Druid Penjaga Hutan", desc: "Menyatu dengan alam, dikelilingi roh hutan.", prompt: "award winning photography, front portrait of a mystical nature druid in an enchanted glowing forest, clothing made of leaves, looking straight at camera, neutral expression, centered face, magical green lighting, photorealistic, 8k" },
-            { id: "time_traveler", name: "Penjelajah Waktu", desc: "Melompat antar era dengan peralatan steampunk.", prompt: "award winning photography, front portrait of a steampunk time traveler, floating glowing clocks and brass gears, wearing a trench coat, looking straight at camera, neutral expression, centered face, dramatic cinematic lighting" },
-            { id: "dragon_rider", name: "Penunggang Naga", desc: "Melayang di langit dengan naga peliharaan di atas gunung.", prompt: "award winning photography, front portrait of a fantasy dragon rider warrior in rugged dragon scale armor, mountain peak background, looking straight at camera, neutral expression, centered face, epic bright sunlight" },
-            { id: "mecha_pilot", name: "Pilot Mecha Elit", desc: "Mengendalikan robot raksasa untuk melindungi bumi.", prompt: "award winning photography, front portrait of a sci-fi mecha pilot inside a high-tech glowing cockpit, futuristic plugsuit, neon lights, looking straight at camera, neutral expression, centered face, high contrast cinematic" },
-            { id: "ocean_emperor", name: "Penguasa Atlantis", desc: "Memerintah kerajaan bawah laut dengan trisula bercahaya.", prompt: "award winning photography, front portrait of the majestic ruler of an underwater city, coral and pearl armor, glowing bioluminescent sea creatures background, looking straight at camera, neutral expression, centered face, underwater blue caustic lighting" },
-            { id: "desert_nomad", name: "Nomaden Gurun Mistis", desc: "Menjelajahi pasir emas mencari relik kuno.", prompt: "award winning photography, front portrait of a mysterious desert nomad in a vast sand dune, flowing silk robes, magical dust in the air, looking straight at camera, neutral expression, centered face, golden hour sunset lighting" },
-            { id: "shadow_ninja", name: "Ninja Bayangan", desc: "Menyusup tanpa suara di bawah cahaya bulan purnama.", prompt: "award winning photography, front portrait of a highly skilled ninja assassin in sleek black modern tactical gear, looking straight at camera, neutral expression, centered face, traditional japanese roof background, full moon, cool blue lighting" },
-            { id: "quantum_scientist", name: "Ilmuwan Kuantum", desc: "Memecahkan misteri alam semesta di laboratorium.", prompt: "award winning photography, front portrait of a brilliant scientist in a high-tech pristine white laboratory, floating holographic equations, futuristic lab coat, looking straight at camera, neutral expression, centered face, clean bright white lighting" },
-            { id: "gladiator_champion", name: "Juara Gladiator", desc: "Tak terkalahkan di arena koloseum berteknologi tinggi.", prompt: "award winning photography, front portrait of a fierce gladiator champion in an advanced sci-fi colosseum, high-tech energy armor, looking straight at camera, neutral expression, centered face, crowd cheering background, dramatic stadium lighting" },
-            { id: "astral_mage", name: "Penyihir Astral", desc: "Mengendalikan energi kosmik dan bintang-bintang.", prompt: "award winning photography, front portrait of a powerful cosmic mage, floating galaxies and stardust background, deep purple robes, looking straight at camera, neutral expression, centered face, purple and gold cosmic lighting" },
-            { id: "beast_tamer", name: "Penakluk Monster", desc: "Berdampingan dengan makhluk buas legendaris.", prompt: "award winning photography, front portrait of a rugged fantasy beast tamer, magical meadow background, leather and fur clothing, looking straight at camera, neutral expression, centered face, warm natural sunlight" },
-            { id: "neon_samurai", name: "Samurai Neon", desc: "Membawa katana energi di jalanan hujan metropolis.", prompt: "award winning photography, front portrait of a cyberpunk samurai in a rainy neon lit alley, wearing high-tech futuristic samurai armor, looking straight at camera, neutral expression, centered face, blade runner style lighting, 8k" }
+            { id: "cyber_hacker", name: "Cyberpunk Hacker", desc: "Penguasa kode di kota neon masa depan.", prompt: "digital illustration, cyberpunk style, hacker in a neon lit futuristic city alley, wearing intricate high-tech streetwear and glowing circuitry, dramatic neon blue and magenta lighting, highly detailed, expressive portrait" },
+            { id: "royal_alchemist", name: "Royal Alchemist", desc: "Meracik ramuan emas di laboratorium istana kuno.", prompt: "oil painting style illustration, medieval royal alchemist in a grand castle laboratory filled with glowing potions and ancient books, wearing ornate scholarly robes, warm magical candlelight, rich colors" },
+            { id: "space_commander", name: "Komandan Galaksi", desc: "Memimpin armada bintang melintasi rasi nebula.", prompt: "sci-fi concept art illustration, futuristic space fleet commander standing on the bridge of a sleek spaceship, glowing colorful nebula background, wearing a crisp high-tech military uniform, cinematic sci-fi lighting" },
+            { id: "nature_druid", name: "Druid Penjaga Hutan", desc: "Menyatu dengan alam, dikelilingi roh hutan.", prompt: "fantasy illustration, mystical nature druid in an enchanted glowing forest, clothing woven from magical leaves and vines, surrounded by glowing fairy lights, soft magical green lighting, ethereal atmosphere" },
+            { id: "time_traveler", name: "Penjelajah Waktu", desc: "Melompat antar era dengan peralatan steampunk.", prompt: "steampunk illustration, adventurous time traveler surrounded by floating glowing clock faces and intricate brass gears, wearing a stylish leather trench coat and goggles, dramatic dynamic lighting" },
+            { id: "dragon_rider", name: "Penunggang Naga", desc: "Melayang di langit dengan naga peliharaan di atas gunung.", prompt: "epic fantasy illustration, brave dragon rider warrior in rugged dragon-scale armor, standing on a high mountain peak with a majestic dragon in the background, epic bright sunlight, heroic pose" },
+            { id: "mecha_pilot", name: "Pilot Mecha Elit", desc: "Mengendalikan robot raksasa untuk melindungi bumi.", prompt: "anime sci-fi style illustration, elite mecha pilot inside a high-tech glowing cockpit, wearing a futuristic sleek plugsuit, illuminated by neon dashboard lights, high contrast, intense expression" },
+            { id: "ocean_emperor", name: "Penguasa Atlantis", desc: "Memerintah kerajaan bawah laut dengan trisula bercahaya.", prompt: "underwater fantasy illustration, majestic ruler of an advanced underwater city, wearing elegant armor made of coral and pearls, surrounded by glowing bioluminescent sea creatures, deep blue caustic lighting" },
+            { id: "desert_nomad", name: "Nomaden Gurun Mistis", desc: "Menjelajahi pasir emas mencari relik kuno.", prompt: "fantasy adventure illustration, mysterious desert nomad standing on a vast sand dune, wearing flowing silk robes, magical golden dust floating in the air, warm golden hour sunset lighting, cinematic" },
+            { id: "shadow_ninja", name: "Ninja Bayangan", desc: "Menyusup tanpa suara di bawah cahaya bulan purnama.", prompt: "dark fantasy illustration, highly skilled ninja assassin in sleek modern tactical gear, perched on a traditional japanese roof, huge full moon background, cool blue moonlight, stealthy atmosphere" },
+            { id: "quantum_scientist", name: "Ilmuwan Kuantum", desc: "Memecahkan misteri alam semesta di laboratorium.", prompt: "futuristic illustration, brilliant quantum scientist in a pristine white high-tech laboratory, interacting with floating holographic complex equations, wearing a modern sleek lab coat, clean bright lighting" },
+            { id: "gladiator_champion", name: "Juara Gladiator", desc: "Tak terkalahkan di arena koloseum berteknologi tinggi.", prompt: "sci-fi action illustration, fierce gladiator champion in an advanced high-tech colosseum, wearing glowing energy armor, massive cheering crowd in the background, dramatic stadium spotlights" },
+            { id: "astral_mage", name: "Penyihir Astral", desc: "Mengendalikan energi kosmik dan bintang-bintang.", prompt: "cosmic fantasy illustration, powerful astral mage casting a spell, background of swirling galaxies and stardust, wearing deep purple robes with gold accents, glowing purple and gold magical lighting" },
+            { id: "beast_tamer", name: "Penakluk Monster", desc: "Berdampingan dengan makhluk buas legendaris.", prompt: "fantasy illustration, rugged beast tamer in a lush magical meadow, wearing rustic leather and fur clothing, accompanied by a mystical spirit animal, warm natural sunlight, harmonious mood" },
+            { id: "neon_samurai", name: "Samurai Neon", desc: "Membawa katana energi di jalanan hujan metropolis.", prompt: "cyberpunk illustration, futuristic samurai standing in a rainy neon-lit alleyway, wearing high-tech samurai armor with glowing accents, holding an energy katana, moody cinematic blade runner style lighting" }
         ];
 
         // Pool of Questions (We will pick 10 randomly)
@@ -292,6 +297,7 @@
         let currentQuestionIndex = 0;
         let userAnswers = [];
         let stream = null; // Camera stream
+        let isMirrored = false; // Track if the current image is mirrored (like a selfie)
 
         // --- DOM ELEMENTS ---
         const UI = {
@@ -371,6 +377,7 @@
                 if (!document.fullscreenElement) {
                     document.documentElement.requestFullscreen().catch(err => {
                         console.warn(`Error attempting to enable full-screen mode: ${err.message}`);
+                        alert("Browser tidak mengizinkan fullscreen.");
                     });
                     UI.fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
                 } else {
@@ -395,6 +402,8 @@
                     alert('Mohon unggah file berupa gambar (JPG/PNG).');
                     return;
                 }
+                
+                isMirrored = false; // Uploaded files are typically not mirrored
 
                 // Show preview
                 const reader = new FileReader();
@@ -428,12 +437,19 @@
             }
 
             try {
+                // Request video, preferring the front camera
                 stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 960 } } 
                 });
+                
                 UI.cameraFeed.srcObject = stream;
-                UI.cameraModal.classList.remove('hidden');
-                UI.cameraModal.classList.add('flex');
+                
+                // Ensure video plays before showing modal to avoid blank screens on some devices
+                UI.cameraFeed.onloadedmetadata = () => {
+                    UI.cameraFeed.play();
+                    UI.cameraModal.classList.remove('hidden');
+                    UI.cameraModal.classList.add('flex');
+                };
             } catch (err) {
                 console.error("Camera error:", err);
                 alert("Tidak dapat mengakses kamera. Pastikan izin kamera diberikan pada browser dan tidak sedang digunakan oleh aplikasi lain.");
@@ -457,15 +473,22 @@
             canvas.height = video.videoHeight;
             const ctx = canvas.getContext('2d');
             
-            // Draw the video frame to canvas. If video is mirrored in CSS, we must mirror it in canvas to save it properly.
+            // Draw the video frame to canvas.
+            // Since it's a selfie camera, we visually mirrored it in CSS. 
+            // We should mirror it on the canvas so the saved image matches what the user saw.
             ctx.translate(canvas.width, 0);
             ctx.scale(-1, 1);
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
             const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
             
+            isMirrored = true; // Mark as mirrored since it came from the selfie cam
+            
             UI.userPreview.src = dataUrl;
             UI.rawUserImg.src = dataUrl;
+            
+            // Make sure preview reflects the mirror state
+            UI.userPreview.style.transform = isMirrored ? 'scaleX(-1)' : 'scaleX(1)';
             
             UI.userPreview.classList.remove('hidden');
             UI.uploadPlaceholder.classList.add('hidden');
@@ -565,18 +588,19 @@
             try {
                 UI.processLog.textContent = "Memanggil keajaiban Gemini AI untuk proses Face Swap & Generate...";
                 
-                // Get base64 from user image
+                // Get base64 from user image (removing the data:image/...;base64, prefix)
                 const base64Data = UI.rawUserImg.src.split(',')[1];
                 let mimeType = "image/jpeg";
-                if(UI.rawUserImg.src.includes("image/png")) mimeType = "image/png";
-                if(UI.rawUserImg.src.includes("image/webp")) mimeType = "image/webp";
+                if(UI.rawUserImg.src.startsWith("data:image/png")) mimeType = "image/png";
+                if(UI.rawUserImg.src.startsWith("data:image/webp")) mimeType = "image/webp";
 
-                const promptText = `Transform this person into a ${chosenProfession.name}. 
-Context: ${chosenProfession.prompt}. 
-IMPORTANT INSTRUCTIONS: 
-1. Preserve the person's exact facial identity, facial features, age, and gender from the reference image. 
-2. Seamlessly blend their face into the new environment, lighting, and attire as a highly realistic and cinematic portrait.
-3. Make sure it looks like a professional photo shoot of the same person.`;
+                // Craft a prompt specifically for image-to-image styling
+                const promptText = `Turn this drawing into a digital rendering. Redraw the person in the provided image as a ${chosenProfession.name}.
+Theme & Style: ${chosenProfession.prompt}.
+CRITICAL INSTRUCTIONS:
+1. You must maintain the exact same face, identity, age, and facial features of the person in the input image. It must look exactly like them.
+2. Change their clothing, the background, and the overall artistic style to match the requested theme (${chosenProfession.name}).
+3. Ensure the lighting and colors blend seamlessly. Make it look like a high-quality, professional illustration of this specific person.`;
 
                 const payload = {
                     contents: [{
@@ -592,16 +616,15 @@ IMPORTANT INSTRUCTIONS:
                         ]
                     }],
                     generationConfig: {
-                        responseModalities: ['IMAGE'],
-                        imageConfig: { aspectRatio: "3:4" }
+                        responseModalities: ['TEXT', 'IMAGE'] // Requesting image output based on input image
                     }
                 };
 
-                // No API key required. Canvas proxy handles it automatically.
+                // Canvas provides the key
                 const apiKey = ""; 
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent?key=${apiKey}`;
 
-                UI.processLog.textContent = "Menenun masa depanmu dengan Gemini AI (Ini memakan waktu sekitar 5-10 detik)...";
+                UI.processLog.textContent = "Menenun masa depanmu dengan Gemini AI (Ini memakan waktu sekitar 5-15 detik)...";
 
                 let response;
                 // Exponential backoff retry logic for robustness
@@ -632,27 +655,40 @@ IMPORTANT INSTRUCTIONS:
 
                 UI.processLog.textContent = "Selesai! Menampilkan hasil...";
 
+                // Hide processing UI and show result UI immediately so canvas can be drawn
+                UI.stepProcessing.classList.remove('flex');
+                UI.stepProcessing.classList.add('hidden');
+                UI.stepResult.classList.remove('hidden');
+                UI.stepResult.classList.add('flex');
+
+                UI.resultProf.textContent = chosenProfession.name;
+                UI.resultDesc.textContent = chosenProfession.desc;
+
                 const imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
                 
                 // Draw to final canvas
                 const canvas = UI.finalCanvas;
                 const ctx = canvas.getContext('2d');
                 const img = new Image();
+                
                 img.onload = () => {
                     canvas.width = img.width;
                     canvas.height = img.height;
+                    
+                    // If the original image was mirrored (selfie), the AI output might also need mirroring back 
+                    // depending on how the model processed it. Usually, it keeps the orientation of the input.
+                    // We'll apply the mirroring visually via CSS to keep the download true to what they see.
+                    canvas.style.transform = isMirrored ? 'scaleX(-1)' : 'scaleX(1)';
+                    
                     ctx.drawImage(img, 0, 0);
                     
-                    UI.stepProcessing.classList.remove('flex');
-                    UI.stepProcessing.classList.add('hidden');
-                    UI.stepResult.classList.remove('hidden');
-                    UI.stepResult.classList.add('flex');
-
-                    UI.resultProf.textContent = chosenProfession.name;
-                    UI.resultDesc.textContent = chosenProfession.desc;
-                    
+                    // Fade in the result
                     UI.resultLoading.classList.add('hidden');
-                    UI.finalCanvas.classList.remove('hidden');
+                    canvas.classList.remove('hidden');
+                    // slight delay to ensure display:block applies before opacity transition
+                    setTimeout(() => {
+                        canvas.classList.remove('opacity-0');
+                    }, 50);
                 };
                 img.src = imageUrl;
 
@@ -666,9 +702,24 @@ IMPORTANT INSTRUCTIONS:
         // --- STREAMING_CHUNK:Utility Functions... ---
 
         function downloadResult() {
+            // Because we might have visually mirrored the canvas via CSS (for selfies),
+            // we need to draw it to a temporary canvas correctly before downloading
+            // so the downloaded image matches what the user sees on screen.
+            const sourceCanvas = UI.finalCanvas;
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = sourceCanvas.width;
+            tempCanvas.height = sourceCanvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
+
+            if (isMirrored) {
+                tempCtx.translate(tempCanvas.width, 0);
+                tempCtx.scale(-1, 1);
+            }
+            tempCtx.drawImage(sourceCanvas, 0, 0);
+
             const link = document.createElement('a');
-            link.download = 'Takdir-Masa-Depan.png';
-            link.href = UI.finalCanvas.toDataURL('image/png');
+            link.download = `Takdir-${Date.now()}.png`;
+            link.href = tempCanvas.toDataURL('image/png', 1.0);
             link.click();
         }
 
@@ -683,11 +734,19 @@ IMPORTANT INSTRUCTIONS:
             UI.fileUpload.value = '';
             UI.userPreview.src = '';
             UI.userPreview.classList.add('hidden');
+            UI.userPreview.style.transform = 'scaleX(1)'; // reset mirror
             UI.uploadPlaceholder.classList.remove('hidden');
             UI.btnStartQuiz.disabled = true;
             UI.btnStartQuiz.classList.add('opacity-50', 'cursor-not-allowed');
-            UI.finalCanvas.classList.add('hidden');
-            UI.resultLoading.classList.remove('hidden');
+            
+            // Reset Canvas
+            UI.finalCanvas.classList.add('opacity-0');
+            UI.finalCanvas.style.transform = 'scaleX(1)';
+            setTimeout(() => {
+                const ctx = UI.finalCanvas.getContext('2d');
+                ctx.clearRect(0, 0, UI.finalCanvas.width, UI.finalCanvas.height);
+                UI.resultLoading.classList.remove('hidden');
+            }, 500); // wait for fade out
             
             UI.modelLoadingMsg.textContent = "Sihir AI siap digunakan!";
             UI.modelLoadingMsg.classList.replace('text-yellow-400', 'text-green-400');
