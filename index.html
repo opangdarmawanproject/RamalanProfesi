@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔮 Ramalan Profesi Masa Depan</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&family=Cinzel:wght@700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Poppins', 'sans-serif'],
+                        display: ['Cinzel', 'serif'],
+                    },
+                    colors: {
+                        mystic: {
+                            900: '#1a0b2e',
+                            800: '#2d1b4e',
+                            700: '#432c7a',
+                            600: '#5b3ea8',
+                            500: '#7552d6',
+                            400: '#916bff',
+                        }
+                    },
+                    animation: {
+                        'float': 'float 3s ease-in-out infinite',
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: radial-gradient(circle at center, #2d1b4e 0%, #000000 100%);
+            color: #e2e8f0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+        .crystal-ball {
+            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.8), rgba(145, 107, 255, 0.5) 40%, rgba(0,0,0,0.8) 90%);
+            box-shadow: 0 0 20px rgba(145, 107, 255, 0.6), inset 0 0 20px rgba(255,255,255,0.5);
+            border-radius: 50%;
+        }
+        .btn-mystic {
+            background: linear-gradient(135deg, #7552d6, #432c7a);
+            transition: all 0.3s ease;
+        }
+        .btn-mystic:hover {
+            background: linear-gradient(135deg, #916bff, #5b3ea8);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(145, 107, 255, 0.4);
+        }
+        #camera-modal {
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+        }
+        .camera-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            aspect-ratio: 3/4;
+            background: #000;
+            border-radius: 1rem;
+            overflow: hidden;
+            border: 2px solid #916bff;
+        }
+        #camera-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* Mirror effect for selfie */
+        }
+        #result-canvas {
+            display: none; /* Hidden canvas used for processing */
+        }
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.1);
+            border-left-color: #916bff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center p-4 relative">
+
+    <!-- Background Stars Effect -->
+    <div class="fixed inset-0 z-[-1] opacity-50" id="stars-container"></div>
+
+    <button id="fullscreen-btn" class="fixed top-4 right-4 z-50 text-mystic-400 hover:text-white p-2 rounded-full glass-panel" title="Toggle Fullscreen">
+        <i class="fas fa-expand"></i>
+    </button>
+
+    <div class="w-full max-w-3xl glass-panel p-8 mt-10 relative z-10 transition-all duration-500" id="app-container">
+        
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl md:text-5xl font-display text-transparent bg-clip-text bg-gradient-to-r from-mystic-400 to-purple-300 mb-2">
+                <i class="fas fa-star-and-crescent text-mystic-500 mr-2 text-2xl md:text-4xl animate-pulse-slow"></i> 
+                Ramalan Profesi
+            </h1>
+            <p class="text-gray-400 italic">Temukan takdir dan wujud masa depanmu.</p>
+        </div>
+
+        <!-- Step 1: Upload Photo -->
+        <div id="step-upload" class="flex flex-col items-center space-y-6">
+            
+            <div class="flex gap-4 mb-2">
+                <button id="btn-open-camera" class="bg-gray-800 hover:bg-gray-700 text-mystic-300 px-4 py-2 rounded-lg border border-gray-600 transition-colors">
+                    <i class="fas fa-camera mr-2"></i> Buka Kamera
+                </button>
+                <button onclick="document.getElementById('file-upload').click()" class="bg-gray-800 hover:bg-gray-700 text-mystic-300 px-4 py-2 rounded-lg border border-gray-600 transition-colors">
+                    <i class="fas fa-upload mr-2"></i> Unggah File
+                </button>
+            </div>
+
+            <div class="w-48 h-48 crystal-ball animate-float flex items-center justify-center relative overflow-hidden group">
+                <img id="user-preview" src="" alt="Preview" class="w-full h-full object-cover hidden rounded-full">
+                <div id="upload-placeholder" class="text-center p-4">
+                    <i class="fas fa-user-circle text-4xl text-mystic-400 mb-2"></i>
+                    <p class="text-xs font-semibold text-mystic-300">Wajah Belum Terdeteksi</p>
+                </div>
+            </div>
+            <input type="file" id="file-upload" accept="image/*" class="hidden">
+            
+            <div class="text-center text-sm text-gray-400 max-w-md">
+                <p><i class="fas fa-shield-alt text-green-400 mr-1"></i> 100% Aman & Privasi Terjaga.</p>
+                <p>Foto diproses langsung di perangkatmu (tidak dikirim ke server manapun).</p>
+                <p class="mt-2 text-yellow-300 text-xs">⚠️ Untuk hasil terbaik: Wajah menghadap lurus ke depan, pencahayaan baik, tanpa kacamata gelap/topi.</p>
+            </div>
+
+            <button id="btn-start-quiz" class="btn-mystic text-white font-bold py-3 px-8 rounded-full shadow-lg opacity-50 cursor-not-allowed transition-all" disabled>
+                Mulai Ritual <i class="fas fa-magic ml-2"></i>
+            </button>
+            <p id="model-loading-msg" class="text-xs text-mystic-400 animate-pulse">Sedang mempersiapkan mantra sihir (Loading AI Models)...</p>
+        </div>
+
+        <!-- Camera Modal -->
+        <div id="camera-modal" class="fixed inset-0 z-[100] hidden flex-col items-center justify-center p-4">
+            <div class="w-full max-w-md bg-gray-900 rounded-xl p-4 border border-mystic-600 shadow-2xl relative">
+                <button id="btn-close-camera" class="absolute top-2 right-2 text-gray-400 hover:text-white z-10 w-8 h-8 rounded-full bg-black bg-opacity-50 flex items-center justify-center">
+                    <i class="fas fa-times"></i>
+                </button>
+                <h3 class="text-white text-center font-bold mb-4">Ambil Foto Selfie</h3>
+                <div class="camera-container mx-auto">
+                    <video id="camera-feed" autoplay playsinline></video>
+                    <!-- Face Guide overlay -->
+                    <div class="absolute inset-0 border-[3px] border-dashed border-mystic-400 opacity-50 rounded-[40%] m-8 pointer-events-none"></div>
+                </div>
+                <div class="mt-4 flex justify-center">
+                    <button id="btn-snap" class="bg-white text-black w-16 h-16 rounded-full border-4 border-mystic-500 hover:bg-gray-200 transition-colors flex items-center justify-center">
+                        <i class="fas fa-camera text-xl"></i>
+                    </button>
+                </div>
+                <p class="text-xs text-center text-gray-400 mt-4">Posisikan wajahmu di dalam garis putus-putus.</p>
+            </div>
+        </div>
+
+        <!-- Step 2: Quiz -->
+        <div id="step-quiz" class="hidden flex-col items-center w-full">
+            <div class="w-full flex justify-between items-center mb-6 text-mystic-300 text-sm font-bold">
+                <span id="question-counter">Pertanyaan 1 / 10</span>
+                <div class="w-1/2 bg-gray-700 rounded-full h-2">
+                    <div id="progress-bar" class="bg-mystic-400 h-2 rounded-full transition-all duration-300" style="width: 10%"></div>
+                </div>
+            </div>
+
+            <div class="glass-panel p-6 w-full text-center mb-8 min-h-[150px] flex items-center justify-center">
+                <h2 id="question-text" class="text-xl md:text-2xl font-semibold text-white">Loading...</h2>
+            </div>
+
+            <div id="options-container" class="w-full grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Options will be injected here -->
+            </div>
+        </div>
+
+        <!-- Step 3: Processing Magic -->
+        <div id="step-processing" class="hidden flex-col items-center space-y-6 py-10">
+            <div class="crystal-ball w-32 h-32 animate-float flex items-center justify-center">
+                <div class="spinner"></div>
+            </div>
+            <h3 class="text-2xl font-display text-mystic-300" id="processing-text">Membaca Bintang-bintang...</h3>
+            <p class="text-gray-400 text-sm text-center max-w-md">Menjahit takdirmu, memanggil AI, dan merias wajahmu ke masa depan. Proses ini memakan waktu beberapa detik.</p>
+            <!-- Progress details for user feedback -->
+            <div id="process-log" class="text-xs text-mystic-500 font-mono mt-4">Menyiapkan kanvas...</div>
+        </div>
+
+        <!-- Step 4: Result -->
+        <div id="step-result" class="hidden flex-col items-center w-full space-y-6">
+            <h2 class="text-3xl font-display text-center text-white mb-2">Takdirmu Adalah:</h2>
+            <h3 id="result-profession" class="text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-600 text-center mb-4">...</h3>
+            
+            <div class="relative w-full max-w-md aspect-[3/4] rounded-xl overflow-hidden shadow-2xl border-4 border-mystic-700 mx-auto">
+                <!-- Fallback loading state for image -->
+                <div id="result-loading" class="absolute inset-0 bg-mystic-900 flex items-center justify-center z-0">
+                    <div class="spinner"></div>
+                </div>
+                <!-- Final Canvas where compositing happens -->
+                <canvas id="final-result-canvas" class="w-full h-full object-cover z-10 relative hidden"></canvas>
+            </div>
+
+            <p id="result-description" class="text-center text-gray-300 italic mt-4 px-4">...</p>
+
+            <div class="flex gap-4 mt-8">
+                <button id="btn-download" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-full transition-colors">
+                    <i class="fas fa-download mr-2"></i> Simpan
+                </button>
+                <button id="btn-restart" class="btn-mystic text-white font-bold py-2 px-6 rounded-full">
+                    <i class="fas fa-redo mr-2"></i> Ramal Ulang
+                </button>
+            </div>
+        </div>
+
+        <!-- Hidden elements for processing -->
+        <img id="raw-user-img" style="display:none;">
+        <img id="generated-bg-img" style="display:none;" crossorigin="anonymous">
+        <canvas id="temp-canvas" style="display:none;"></canvas>
+
+    </div>
+
+    <script>
+        // --- DATA & CONFIGURATION ---
+        
+        // 15 Unique Profession Themes - Dioptimalkan untuk model Flux (Portrait Realism)
+        const professions = [
+            { id: "cyber_hacker", name: "Cyberpunk Hacker", desc: "Penguasa kode di kota neon masa depan.", prompt: "award winning photography, front portrait of a cyberpunk hacker in a neon lit futuristic city, intricate circuitry clothes, looking straight at camera, neutral expression, centered face, symmetrical, neon blue and magenta lighting, 8k resolution, photorealistic" },
+            { id: "royal_alchemist", name: "Royal Alchemist", desc: "Meracik ramuan emas di laboratorium istana kuno.", prompt: "award winning photography, front portrait of a medieval royal alchemist in a grand castle laboratory, glowing potions, wearing ornate robes, looking straight at camera, neutral expression, centered face, warm candlelight, photorealistic, 8k" },
+            { id: "space_commander", name: "Komandan Galaksi", desc: "Memimpin armada bintang melintasi rasi nebula.", prompt: "award winning photography, front portrait of a futuristic space fleet commander, bridge of a spaceship, glowing nebula background, sleek sci-fi military uniform, looking straight at camera, neutral expression, centered face, cinematic sci-fi lighting" },
+            { id: "nature_druid", name: "Druid Penjaga Hutan", desc: "Menyatu dengan alam, dikelilingi roh hutan.", prompt: "award winning photography, front portrait of a mystical nature druid in an enchanted glowing forest, clothing made of leaves, looking straight at camera, neutral expression, centered face, magical green lighting, photorealistic, 8k" },
+            { id: "time_traveler", name: "Penjelajah Waktu", desc: "Melompat antar era dengan peralatan steampunk.", prompt: "award winning photography, front portrait of a steampunk time traveler, floating glowing clocks and brass gears, wearing a trench coat, looking straight at camera, neutral expression, centered face, dramatic cinematic lighting" },
+            { id: "dragon_rider", name: "Penunggang Naga", desc: "Melayang di langit dengan naga peliharaan di atas gunung.", prompt: "award winning photography, front portrait of a fantasy dragon rider warrior in rugged dragon scale armor, mountain peak background, looking straight at camera, neutral expression, centered face, epic bright sunlight" },
+            { id: "mecha_pilot", name: "Pilot Mecha Elit", desc: "Mengendalikan robot raksasa untuk melindungi bumi.", prompt: "award winning photography, front portrait of a sci-fi mecha pilot inside a high-tech glowing cockpit, futuristic plugsuit, neon lights, looking straight at camera, neutral expression, centered face, high contrast cinematic" },
+            { id: "ocean_emperor", name: "Penguasa Atlantis", desc: "Memerintah kerajaan bawah laut dengan trisula bercahaya.", prompt: "award winning photography, front portrait of the majestic ruler of an underwater city, coral and pearl armor, glowing bioluminescent sea creatures background, looking straight at camera, neutral expression, centered face, underwater blue caustic lighting" },
+            { id: "desert_nomad", name: "Nomaden Gurun Mistis", desc: "Menjelajahi pasir emas mencari relik kuno.", prompt: "award winning photography, front portrait of a mysterious desert nomad in a vast sand dune, flowing silk robes, magical dust in the air, looking straight at camera, neutral expression, centered face, golden hour sunset lighting" },
+            { id: "shadow_ninja", name: "Ninja Bayangan", desc: "Menyusup tanpa suara di bawah cahaya bulan purnama.", prompt: "award winning photography, front portrait of a highly skilled ninja assassin in sleek black modern tactical gear, looking straight at camera, neutral expression, centered face, traditional japanese roof background, full moon, cool blue lighting" },
+            { id: "quantum_scientist", name: "Ilmuwan Kuantum", desc: "Memecahkan misteri alam semesta di laboratorium.", prompt: "award winning photography, front portrait of a brilliant scientist in a high-tech pristine white laboratory, floating holographic equations, futuristic lab coat, looking straight at camera, neutral expression, centered face, clean bright white lighting" },
+            { id: "gladiator_champion", name: "Juara Gladiator", desc: "Tak terkalahkan di arena koloseum berteknologi tinggi.", prompt: "award winning photography, front portrait of a fierce gladiator champion in an advanced sci-fi colosseum, high-tech energy armor, looking straight at camera, neutral expression, centered face, crowd cheering background, dramatic stadium lighting" },
+            { id: "astral_mage", name: "Penyihir Astral", desc: "Mengendalikan energi kosmik dan bintang-bintang.", prompt: "award winning photography, front portrait of a powerful cosmic mage, floating galaxies and stardust background, deep purple robes, looking straight at camera, neutral expression, centered face, purple and gold cosmic lighting" },
+            { id: "beast_tamer", name: "Penakluk Monster", desc: "Berdampingan dengan makhluk buas legendaris.", prompt: "award winning photography, front portrait of a rugged fantasy beast tamer, magical meadow background, leather and fur clothing, looking straight at camera, neutral expression, centered face, warm natural sunlight" },
+            { id: "neon_samurai", name: "Samurai Neon", desc: "Membawa katana energi di jalanan hujan metropolis.", prompt: "award winning photography, front portrait of a cyberpunk samurai in a rainy neon lit alley, wearing high-tech futuristic samurai armor, looking straight at camera, neutral expression, centered face, blade runner style lighting, 8k" }
+        ];
+
+        // Pool of Questions (We will pick 10 randomly)
+        const questionPool = [
+            { q: "Apa yang kamu lakukan jika menemukan mesin waktu?", options: ["Pergi ke masa depan melihat teknologi", "Ke masa lalu mengubah sejarah", "Mempelajari cara kerjanya", "Menjualnya ke museum"] },
+            { q: "Pilih hewan peliharaan mistis:", options: ["Naga Api", "Serigala Bayangan", "Burung Phoenix", "Kucing Hantu"] },
+            { q: "Senjata apa yang kamu pilih di medan perang?", options: ["Pedang Laser", "Tongkat Sihir", "Meriam Plasma", "Belati Beracun"] },
+            { q: "Di mana tempat liburan impianmu?", options: ["Kota melayang di awan", "Hutan yang bisa bernyanyi", "Dasar samudra yang menyala", "Bulan planet lain"] },
+            { q: "Apa warna auramu menurutmu?", options: ["Merah Membara", "Biru Ketenangan", "Ungu Misterius", "Hijau Kehidupan"] },
+            { q: "Jika terjebak di pulau terpencil, apa yang kamu cari pertama kali?", options: ["Membangun tempat berlindung", "Mencari sumber sihir", "Menjelajahi reruntuhan kuno", "Membuat sinyal bantuan"] },
+            { q: "Kekuatan super apa yang paling kamu inginkan?", options: ["Membaca pikiran", "Terbang secepat cahaya", "Mengendalikan elemen", "Tidak bisa mati"] },
+            { q: "Pilih kendaraanmu:", options: ["Naga terbang", "Mobil terbang neon", "Kereta kuda hantu", "Kapal selam kristal"] },
+            { q: "Apa yang paling kamu takuti?", options: ["Kegelapan abadi", "Kehilangan kendali", "Dilupakan sejarah", "Terjebak dalam rutinitas"] },
+            { q: "Pilih elemen favoritmu:", options: ["Api yang menghanguskan", "Air yang mengalir", "Tanah yang kokoh", "Angin yang bebas"] },
+            { q: "Apa makanan favoritmu di dunia fantasi?", options: ["Apel Emas keabadian", "Ramuan penambah mana", "Daging monster panggang", "Roti bintang bercahaya"] },
+            { q: "Jika kamu seorang raja/ratu, bagaimana caramu memimpin?", options: ["Dengan kekuatan mutlak", "Dengan kebijaksanaan", "Membangun teknologi canggih", "Menjaga keseimbangan alam"] },
+            { q: "Apa yang ada di dalam peti harta karun impianmu?", options: ["Koin emas tak terbatas", "Gulungan sihir kuno", "Cetak biru mesin waktu", "Peta galaksi tersembunyi"] },
+            { q: "Bagaimana cara kamu menyelesaikan konflik?", options: ["Duel satu lawan satu", "Negosiasi damai", "Hack sistem musuh", "Gunakan tipu muslihat"] },
+            { q: "Pakaian seperti apa yang paling membuatmu nyaman?", options: ["Jubah sutra elegan", "Baju zirah berat", "Jaket kulit penuh kabel", "Pakaian ringan dari daun"] },
+            { q: "Pilih satu kata yang menggambarkan dirimu:", options: ["Berani", "Cerdas", "Misterius", "Adaptif"] },
+            { q: "Cuaca seperti apa yang paling kamu sukai?", options: ["Badai petir menyambar", "Hujan rintik di malam hari", "Cerah tanpa awan", "Kabut tebal yang dingin"] },
+            { q: "Jika bisa mengubah satu hal di dunia, apa itu?", options: ["Menghapus penyakit", "Memberikan sihir untuk semua", "Membuka portal ke bintang", "Membuat alam kembali hijau"] },
+            { q: "Siapa rekan petualangan idealmu?", options: ["Robot AI yang cerdik", "Penyihir tua yang bijak", "Prajurit tangguh tak banyak bicara", "Hewan buas yang setia"] },
+            { q: "Apa tujuan akhir hidupmu?", options: ["Menguasai dunia", "Mencari kebenaran sejati", "Meninggalkan warisan teknologi", "Hidup tenang di alam liar"] }
+        ];
+
+        // --- STATE VARIABLES ---
+        let currentQuestions = [];
+        let currentQuestionIndex = 0;
+        let userAnswers = [];
+        let stream = null; // Camera stream
+
+        // --- DOM ELEMENTS ---
+        const UI = {
+            stepUpload: document.getElementById('step-upload'),
+            stepQuiz: document.getElementById('step-quiz'),
+            stepProcessing: document.getElementById('step-processing'),
+            stepResult: document.getElementById('step-result'),
+            fileUpload: document.getElementById('file-upload'),
+            userPreview: document.getElementById('user-preview'),
+            uploadPlaceholder: document.getElementById('upload-placeholder'),
+            btnStartQuiz: document.getElementById('btn-start-quiz'),
+            modelLoadingMsg: document.getElementById('model-loading-msg'),
+            qCounter: document.getElementById('question-counter'),
+            progressBar: document.getElementById('progress-bar'),
+            qText: document.getElementById('question-text'),
+            optionsContainer: document.getElementById('options-container'),
+            resultProf: document.getElementById('result-profession'),
+            resultDesc: document.getElementById('result-description'),
+            finalCanvas: document.getElementById('final-result-canvas'),
+            resultLoading: document.getElementById('result-loading'),
+            btnDownload: document.getElementById('btn-download'),
+            btnRestart: document.getElementById('btn-restart'),
+            rawUserImg: document.getElementById('raw-user-img'),
+            genBgImg: document.getElementById('generated-bg-img'),
+            processLog: document.getElementById('process-log'),
+            fullscreenBtn: document.getElementById('fullscreen-btn'),
+            
+            // Camera Elements
+            cameraModal: document.getElementById('camera-modal'),
+            cameraFeed: document.getElementById('camera-feed'),
+            btnOpenCamera: document.getElementById('btn-open-camera'),
+            btnCloseCamera: document.getElementById('btn-close-camera'),
+            btnSnap: document.getElementById('btn-snap')
+        };
+
+        // --- STREAMING_CHUNK:Initialization and Face-API loading... ---
+        
+        // Generate simple stars for background
+        function createStars() {
+            const container = document.getElementById('stars-container');
+            for (let i = 0; i < 50; i++) {
+                const star = document.createElement('div');
+                star.className = 'absolute rounded-full bg-white opacity-50';
+                star.style.width = Math.random() * 3 + 'px';
+                star.style.height = star.style.width;
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                star.style.animation = `pulse-slow ${Math.random() * 3 + 2}s infinite`;
+                container.appendChild(star);
+            }
+        }
+
+        // Siapkan sistem AI Gemini
+        async function loadModels() {
+            UI.modelLoadingMsg.textContent = "Sihir AI siap digunakan!";
+            UI.modelLoadingMsg.classList.replace('text-mystic-400', 'text-green-400');
+            UI.modelLoadingMsg.classList.remove('animate-pulse');
+            
+            // If user already uploaded image while loading, enable button
+            if (UI.rawUserImg.src && UI.rawUserImg.src !== window.location.href) {
+                enableStartButton();
+            }
+        }
+
+        // Initialize App
+        window.onload = () => {
+            createStars();
+            loadModels();
+            setupEventListeners();
+        };
+
+        // --- STREAMING_CHUNK:Event Listeners & File Handling... ---
+
+        function setupEventListeners() {
+            // Fullscreen toggle
+            UI.fullscreenBtn.addEventListener('click', () => {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(err => {
+                        console.warn(`Error attempting to enable full-screen mode: ${err.message}`);
+                    });
+                    UI.fullscreenBtn.innerHTML = '<i class="fas fa-compress"></i>';
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                        UI.fullscreenBtn.innerHTML = '<i class="fas fa-expand"></i>';
+                    }
+                }
+            });
+
+            // Camera Listeners
+            UI.btnOpenCamera.addEventListener('click', openCamera);
+            UI.btnCloseCamera.addEventListener('click', closeCamera);
+            UI.btnSnap.addEventListener('click', takePhoto);
+
+            // Handle Image Upload
+            UI.fileUpload.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                if (!file.type.startsWith('image/')) {
+                    alert('Mohon unggah file berupa gambar (JPG/PNG).');
+                    return;
+                }
+
+                // Show preview
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    UI.userPreview.src = event.target.result;
+                    UI.rawUserImg.src = event.target.result; // For processing
+                    
+                    UI.userPreview.classList.remove('hidden');
+                    UI.uploadPlaceholder.classList.add('hidden');
+                    
+                    // Wait for image to load
+                    UI.rawUserImg.onload = async () => {
+                        await checkFaceInUpload();
+                    };
+                };
+                reader.readAsDataURL(file);
+            });
+
+            UI.btnStartQuiz.addEventListener('click', startQuiz);
+            UI.btnRestart.addEventListener('click', restartApp);
+            UI.btnDownload.addEventListener('click', downloadResult);
+        }
+
+        // --- STREAMING_CHUNK:Camera Handling... ---
+
+        async function openCamera() {
+            // Cek apakah browser mendukung akses kamera (HTTPS diperlukan)
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                alert("Browser Anda tidak mendukung fitur kamera, atau Anda tidak menggunakan koneksi aman (HTTPS). Silakan gunakan tombol 'Unggah File'.");
+                return;
+            }
+
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 960 } } 
+                });
+                UI.cameraFeed.srcObject = stream;
+                UI.cameraModal.classList.remove('hidden');
+                UI.cameraModal.classList.add('flex');
+            } catch (err) {
+                console.error("Camera error:", err);
+                alert("Tidak dapat mengakses kamera. Pastikan izin kamera diberikan pada browser dan tidak sedang digunakan oleh aplikasi lain.");
+            }
+        }
+
+        function closeCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            UI.cameraModal.classList.add('hidden');
+            UI.cameraModal.classList.remove('flex');
+        }
+
+        function takePhoto() {
+            const video = UI.cameraFeed;
+            const canvas = document.createElement('canvas');
+            // Match canvas size to video actual size
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            
+            // Draw the video frame to canvas. If video is mirrored in CSS, we must mirror it in canvas to save it properly.
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            
+            UI.userPreview.src = dataUrl;
+            UI.rawUserImg.src = dataUrl;
+            
+            UI.userPreview.classList.remove('hidden');
+            UI.uploadPlaceholder.classList.add('hidden');
+            
+            closeCamera();
+
+            UI.rawUserImg.onload = async () => {
+                await checkFaceInUpload();
+            };
+        }
+
+        async function checkFaceInUpload() {
+            UI.modelLoadingMsg.textContent = "Foto diterima! AI siap memproses.";
+            UI.modelLoadingMsg.classList.replace('text-mystic-400', 'text-green-400');
+            UI.modelLoadingMsg.classList.replace('text-yellow-400', 'text-green-400');
+            UI.modelLoadingMsg.classList.remove('animate-pulse');
+            enableStartButton();
+        }
+
+        function enableStartButton() {
+            UI.btnStartQuiz.disabled = false;
+            UI.btnStartQuiz.classList.remove('opacity-50', 'cursor-not-allowed');
+            UI.btnStartQuiz.classList.add('hover:scale-105');
+        }
+
+        // --- STREAMING_CHUNK:Quiz Logic... ---
+
+        function startQuiz() {
+            // Select 10 random questions
+            const shuffled = [...questionPool].sort(() => 0.5 - Math.random());
+            currentQuestions = shuffled.slice(0, 10);
+            currentQuestionIndex = 0;
+            userAnswers = [];
+
+            // UI Transition
+            UI.stepUpload.classList.add('hidden');
+            UI.stepQuiz.classList.remove('hidden');
+            UI.stepQuiz.classList.add('flex');
+            
+            showQuestion();
+        }
+
+        function showQuestion() {
+            const q = currentQuestions[currentQuestionIndex];
+            UI.qCounter.textContent = `Pertanyaan ${currentQuestionIndex + 1} / 10`;
+            UI.progressBar.style.width = `${((currentQuestionIndex) / 10) * 100}%`;
+            
+            UI.qText.innerHTML = q.q;
+            UI.optionsContainer.innerHTML = '';
+
+            // Add animation class
+            UI.qText.classList.remove('animate-fade-in');
+            void UI.qText.offsetWidth; // trigger reflow
+            UI.qText.classList.add('animate-fade-in');
+
+            q.options.forEach((opt, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'bg-gray-800 hover:bg-mystic-600 border border-gray-600 hover:border-mystic-400 text-white rounded-lg p-4 text-sm transition-all text-left w-full shadow-md';
+                btn.textContent = opt;
+                btn.onclick = () => handleAnswer(index);
+                UI.optionsContainer.appendChild(btn);
+            });
+        }
+
+        function handleAnswer(answerIndex) {
+            userAnswers.push(answerIndex);
+            currentQuestionIndex++;
+
+            // Update progress immediately
+            UI.progressBar.style.width = `${((currentQuestionIndex) / 10) * 100}%`;
+
+            if (currentQuestionIndex < currentQuestions.length) {
+                setTimeout(showQuestion, 300); // Slight delay for smooth transition
+            } else {
+                finishQuiz();
+            }
+        }
+
+        // --- STREAMING_CHUNK:Result Generation and Smart Image Compositing (Face Swap)... ---
+
+        async function finishQuiz() {
+            UI.stepQuiz.classList.remove('flex');
+            UI.stepQuiz.classList.add('hidden');
+            UI.stepProcessing.classList.remove('hidden');
+            UI.stepProcessing.classList.add('flex');
+
+            UI.processLog.textContent = "Menghitung takdir...";
+
+            // Determine profession based on answers (simple hash based on sum)
+            const sum = userAnswers.reduce((a, b) => a + b, 0);
+            const professionIndex = sum % professions.length;
+            const chosenProfession = professions[professionIndex];
+
+            // Wait a bit for dramatic effect
+            await new Promise(r => setTimeout(r, 1000));
+
+            try {
+                UI.processLog.textContent = "Memanggil keajaiban Gemini AI untuk proses Face Swap & Generate...";
+                
+                // Get base64 from user image
+                const base64Data = UI.rawUserImg.src.split(',')[1];
+                let mimeType = "image/jpeg";
+                if(UI.rawUserImg.src.includes("image/png")) mimeType = "image/png";
+                if(UI.rawUserImg.src.includes("image/webp")) mimeType = "image/webp";
+
+                const promptText = `Transform this person into a ${chosenProfession.name}. 
+Context: ${chosenProfession.prompt}. 
+IMPORTANT INSTRUCTIONS: 
+1. Preserve the person's exact facial identity, facial features, age, and gender from the reference image. 
+2. Seamlessly blend their face into the new environment, lighting, and attire as a highly realistic and cinematic portrait.
+3. Make sure it looks like a professional photo shoot of the same person.`;
+
+                const payload = {
+                    contents: [{
+                        role: "user",
+                        parts: [
+                            { text: promptText },
+                            {
+                                inlineData: {
+                                    mimeType: mimeType,
+                                    data: base64Data
+                                }
+                            }
+                        ]
+                    }],
+                    generationConfig: {
+                        responseModalities: ['IMAGE'],
+                        imageConfig: { aspectRatio: "3:4" }
+                    }
+                };
+
+                // No API key required. Canvas proxy handles it automatically.
+                const apiKey = ""; 
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image:generateContent?key=${apiKey}`;
+
+                UI.processLog.textContent = "Menenun masa depanmu dengan Gemini AI (Ini memakan waktu sekitar 5-10 detik)...";
+
+                let response;
+                // Exponential backoff retry logic for robustness
+                for(let attempt = 1; attempt <= 3; attempt++) {
+                    try {
+                        response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        if (response.ok) break;
+                    } catch(e) {
+                        if (attempt === 3) throw e;
+                        await new Promise(r => setTimeout(r, 1000 * attempt));
+                    }
+                }
+
+                if (!response || !response.ok) {
+                    throw new Error("Gagal terhubung ke AI. Silakan coba lagi.");
+                }
+
+                const result = await response.json();
+                const part = result?.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+                
+                if (!part) {
+                    throw new Error("AI gagal memproses gambar. Cobalah dengan foto yang lebih jelas.");
+                }
+
+                UI.processLog.textContent = "Selesai! Menampilkan hasil...";
+
+                const imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                
+                // Draw to final canvas
+                const canvas = UI.finalCanvas;
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+                img.onload = () => {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                    
+                    UI.stepProcessing.classList.remove('flex');
+                    UI.stepProcessing.classList.add('hidden');
+                    UI.stepResult.classList.remove('hidden');
+                    UI.stepResult.classList.add('flex');
+
+                    UI.resultProf.textContent = chosenProfession.name;
+                    UI.resultDesc.textContent = chosenProfession.desc;
+                    
+                    UI.resultLoading.classList.add('hidden');
+                    UI.finalCanvas.classList.remove('hidden');
+                };
+                img.src = imageUrl;
+
+            } catch (error) {
+                console.error("Generation error:", error);
+                alert("Sihir terganggu! " + error.message);
+                restartApp();
+            }
+        }
+
+        // --- STREAMING_CHUNK:Utility Functions... ---
+
+        function downloadResult() {
+            const link = document.createElement('a');
+            link.download = 'Takdir-Masa-Depan.png';
+            link.href = UI.finalCanvas.toDataURL('image/png');
+            link.click();
+        }
+
+        function restartApp() {
+            // Reset UI
+            UI.stepResult.classList.remove('flex');
+            UI.stepResult.classList.add('hidden');
+            UI.stepUpload.classList.remove('hidden');
+            UI.stepUpload.classList.add('flex');
+            
+            // Reset Data
+            UI.fileUpload.value = '';
+            UI.userPreview.src = '';
+            UI.userPreview.classList.add('hidden');
+            UI.uploadPlaceholder.classList.remove('hidden');
+            UI.btnStartQuiz.disabled = true;
+            UI.btnStartQuiz.classList.add('opacity-50', 'cursor-not-allowed');
+            UI.finalCanvas.classList.add('hidden');
+            UI.resultLoading.classList.remove('hidden');
+            
+            UI.modelLoadingMsg.textContent = "Sihir AI siap digunakan!";
+            UI.modelLoadingMsg.classList.replace('text-yellow-400', 'text-green-400');
+            UI.modelLoadingMsg.classList.replace('text-red-500', 'text-green-400');
+        }
+    </script>
+    <style>
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</body>
+</html>
